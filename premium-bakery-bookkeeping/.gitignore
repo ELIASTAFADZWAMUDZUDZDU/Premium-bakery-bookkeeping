@@ -1,0 +1,29 @@
+# --- Live financial data (never commit real business data) ---
+# Any working copy of the workbook that contains real income/expense
+# entries must never be committed. Only the blank template belongs
+# in this repo, under templates/.
+*working*.xlsx
+*live*.xlsx
+*actual*.xlsx
+/data/
+/exports/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Temp / scratch files from regenerating the workbook ---
+*.tmp
+~$*.xlsx
