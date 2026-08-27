@@ -11,14 +11,32 @@ File: `templates/Premium_Bakery_Bookkeeping_TEMPLATE.xlsx`
 | Sheet | Purpose | Edited manually? |
 |---|---|---|
 | `How To Use` | Quick-start instructions | No |
-| `Dashboard` | KPIs, today's live view, this-month view, quick facts, 4 charts | No |
+| `Dashboard` | KPIs, today's live view, this-month view, this-year view, quick facts, 4 charts | No |
 | `Income` | Log of every sale/order | **Yes — primary data entry** |
 | `Expenses` | Log of every purchase/cost | **Yes — primary data entry** |
 | `Daily Report` | Day-by-day breakdown for one selected month | No (except Month/Year selectors) |
 | `Monthly Summary` | Month-by-month + category-by-category rollups for one selected year | No (except Year selector) |
+| `Yearly Report` | Fixed 2024–2040 multi-year history | No (no selector — always shows every year) |
 | `Categories` | Dropdown source lists | Only when categories change |
 
-Data flow: `Income` / `Expenses` → `Daily Report` and `Monthly Summary` → `Dashboard`. The two log sheets are the only source of truth; every other sheet is a formula layer.
+Data flow: `Income` / `Expenses` → `Daily Report`, `Monthly Summary`, `Yearly Report` → `Dashboard`. The two log sheets are the only source of truth; every other sheet is a formula layer.
+
+---
+
+## 1a. Sheet protection
+
+Every sheet except `Income`, `Expenses`, and `Categories` is fully locked against editing. No password is set anywhere — this prevents accidental edits, not deliberate ones; anyone with edit access to the file can remove protection via Google Sheets' "Protect sheets and ranges" or Excel's "Unprotect Sheet".
+
+| Sheet | Protected? | Editable cells |
+|---|---|---|
+| `Income` / `Expenses` | Yes | Rows 4–5002, columns A–F (the example row + all data rows). Headers (rows 1–3) and the total row (5003) are locked. |
+| `Daily Report` | Yes | `H2` (Month) and `J2` (Year) only |
+| `Monthly Summary` | Yes | `H2` (Year) only |
+| `Yearly Report` | Yes | None — no selector, so nothing is left open |
+| `Dashboard` / `How To Use` | Yes | None |
+| `Categories` | **No** | Entire sheet — intentional, occasional edits (adding/renaming a category) shouldn't require unprotecting first |
+
+Protection is set in the generator script via `lock_whole_sheet()` / `protect_with_unlocked_cells()` / `unlock_range()` (see `src/build_workbook.py`). Excel-style protection from `openpyxl` does not always survive a Google Sheets import cleanly — verify after importing, and fall back to Google Sheets' own **Data → Protect sheets and ranges** with the same boundaries above if it doesn't carry over.
 
 ---
 
@@ -124,6 +142,24 @@ Both breakdown tables reflect **one year at a time** — not all-time totals.
 
 ---
 
+## 5a. Yearly Report — formula reference
+
+No selector — this sheet always shows the fixed span **2024–2040** (17 rows, `A4:A20`), one row per year.
+
+```
+B (Total Income)    =SUMIFS(Income!$E$4:$E$5002, Income!$A$4:$A$5002, ">="&DATE(<year>,1,1), Income!$A$4:$A$5002, "<"&DATE(<year>+1,1,1))
+C (Total Expenses)  = same pattern, reading from Expenses!$E$4:$E$5002
+D (Net Profit)      =B<row>-C<row>
+E (Profit Margin %) =IFERROR(D<row>/B<row>,0)
+F (Transactions)    =COUNTIFS(...) on Income + COUNTIFS(...) on Expenses, added together
+```
+
+**Row 21 — All Years Total**: sums rows 4–20 for columns B, C, D, F; margin recomputed as `D21/B21`.
+
+To extend the range beyond 2040, edit `YEARLY_YEARS = list(range(2024, 2041))` in `src/build_workbook.py` and regenerate.
+
+---
+
 ## 6. Dates — why they matter everywhere
 
 Every "today," "this month," and "this year" calculation depends on column A actually holding a date value, not text that merely looks like one. A pasted or unusually-formatted entry can silently drop out of every SUMIFS/COUNTIFS calculation with no error shown — it just won't appear in any total.
@@ -149,10 +185,14 @@ KPI cards are built with a helper function that merges each card into a 2-column
 | Expenses This Month | row 19 | **C20** | same pattern on `Expenses!$E$4:$E$5002` |
 | Profit This Month | row 19 | **E20** | `=A20-C20` |
 | Orders This Month | row 19 | **G20** | `COUNTIFS` on `Income!$A$4:$A$5002` for the current month |
-| Best-selling category (this year) | row 25 | **B25** | `INDEX/MATCH` against `Monthly Summary!D21:D26` / `E21:E26` |
-| Biggest expense category (this year) | row 26 | **B26** | `INDEX/MATCH` against `Monthly Summary!A21:A31` / `B21:B31` |
-| Average order amount (all time) | row 27 | **B27** | `=IFERROR(Income!E5003/COUNT(Income!E4:E5002),0)` |
-| Biggest single order (all time) | row 28 | **B28** | `=IFERROR(MAX(Income!E4:E5002),0)` |
+| Income This Year | row 25 | **A26** | `SUMIFS` on `Income!$E$4:$E$5002` between 1 Jan and 1 Jan next year of the current year |
+| Expenses This Year | row 25 | **C26** | same pattern on `Expenses!$E$4:$E$5002` |
+| Profit This Year | row 25 | **E26** | `=A26-C26` |
+| Orders This Year | row 25 | **G26** | `COUNTIFS` on `Income!$A$4:$A$5002` for the current calendar year |
+| Best-selling category (this year) | row 31 | **B31** | `INDEX/MATCH` against `Monthly Summary!D21:D26` / `E21:E26` |
+| Biggest expense category (this year) | row 32 | **B32** | `INDEX/MATCH` against `Monthly Summary!A21:A31` / `B21:B31` |
+| Average order amount (all time) | row 33 | **B33** | `=IFERROR(Income!E5003/COUNT(Income!E4:E5002),0)` |
+| Biggest single order (all time) | row 34 | **B34** | `=IFERROR(MAX(Income!E4:E5002),0)` |
 
 **"Today" and "This Month" both re-evaluate on `TODAY()`** — no manual updating required. "Today" uses an exact date match (`SUMIFS(...,TODAY())`); "This Month" uses a `DATE(YEAR(TODAY()),MONTH(TODAY()),1)` to `EDATE(...,1)` range.
 
@@ -172,10 +212,10 @@ This table is intentionally styled in a muted, low-contrast font — it's a char
 | Chart | Anchor | Data source |
 |---|---|---|
 | Today: Income vs Expenses (bar) | `I11` | `Dashboard!L13:L14` (values), `Dashboard!K13:K14` (categories) |
-| Monthly Income vs Expenses (bar) | `A31` | `Monthly Summary!B3:C15` (values), `A4:A15` (month labels) |
-| Net Profit Trend (line) | `A49` | `Monthly Summary!D3:D15` |
-| Expenses by Category (pie) | `I31` | `Monthly Summary!B20:B31` |
-| Income by Category (pie) | `I49` | `Monthly Summary!E20:E26` |
+| Monthly Income vs Expenses (bar) | `A37` | `Monthly Summary!B3:C15` (values), `A4:A15` (month labels) |
+| Net Profit Trend (line) | `A55` | `Monthly Summary!D3:D15` |
+| Expenses by Category (pie) | `I37` | `Monthly Summary!B20:B31` |
+| Income by Category (pie) | `I55` | `Monthly Summary!E20:E26` |
 
 If a chart looks empty or wrong after an edit, check that these source ranges on `Monthly Summary` / `Dashboard` haven't shifted (e.g. from inserting or deleting rows in the category tables).
 
@@ -190,6 +230,8 @@ If a chart looks empty or wrong after an edit, check that these source ranges on
 | Pie chart shows an old category name | Category renamed on `Categories` but not on `Monthly Summary` breakdown table | Manually update the matching label in `Monthly Summary!A21:A31` (expenses) or `D21:D26` (income), or regenerate the workbook |
 | "This year" figures look wrong or empty | `Monthly Summary!H2` doesn't match the year being logged | Change `H2` |
 | "Daily Report" shows the wrong month | `Daily Report!H2` / `J2` not set to the intended month/year | Change `H2` (month) / `J2` (year) |
+| "Yearly Report" doesn't show a year I need | Year falls outside the fixed 2024–2040 span | Edit `YEARLY_YEARS` in `src/build_workbook.py` and regenerate |
+| Can't type in a sheet other than Income/Expenses | Sheet protection working as intended | Only Income, Expenses, and the Month/Year selector cells on Daily Report / Monthly Summary are meant to be editable; Categories is also open. Everything else is deliberately locked — see §1a |
 | Totals stop updating after adding rows | New rows added past row 5002, outside the formula ranges | Insert new rows above row 5003 rather than appending after it, or extend `DATA_ROWS_END` and regenerate |
 | Import into Google Sheets shows blank charts briefly | Named ranges/charts sometimes need a moment to rebuild on first open | Reload the sheet; if it persists, check Data → Named ranges still lists the three ranges from §3 |
 
@@ -201,9 +243,11 @@ The workbook is generated by `src/build_workbook.py` using `openpyxl`, not built
 
 Key constants in the script:
 
-- `DATA_ROWS_END = 5002` — controls the ~5,000-row capacity of `Income` / `Expenses`. Raising this requires the formula ranges throughout `Daily Report`, `Monthly Summary`, and `Dashboard` to be regenerated (the script already parameterizes these off `DATA_ROWS_END`, so a single value change and rerun handles it).
+- `DATA_ROWS_END = 5002` — controls the ~5,000-row capacity of `Income` / `Expenses`. Raising this requires the formula ranges throughout `Daily Report`, `Monthly Summary`, `Yearly Report`, and `Dashboard` to be regenerated (the script already parameterizes these off `DATA_ROWS_END`, so a single value change and rerun handles it).
+- `YEARLY_YEARS = list(range(2024, 2041))` — the fixed year span shown on `Yearly Report`. Extend the range and regenerate to cover more years.
 - `income_categories`, `expense_categories`, `payment_methods` — plain Python lists; editing and rerunning keeps `Categories`, the dropdowns, and the `Monthly Summary` breakdown tables in sync (safer than hand-editing per §3's renaming caveat).
 - `CURRENCY_FMT = '"R"#,##0'` — South African Rand, no decimals.
+- `lock_whole_sheet()`, `protect_with_unlocked_cells()`, `unlock_range()` — the sheet-protection helpers described in §1a. No password is set.
 
 ```bash
 pip install -r requirements.txt

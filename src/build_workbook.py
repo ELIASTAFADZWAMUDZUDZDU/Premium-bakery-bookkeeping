@@ -1,7 +1,7 @@
 import datetime
 import openpyxl
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 
@@ -72,6 +72,29 @@ def style_header_row(ws, row, last_col, fill, font=HEADER_FONT, height=24):
 def autosize(ws, widths):
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
+
+# ---------- Sheet protection helpers ----------
+# openpyxl cells default to locked=True. Locking only takes effect once a
+# sheet's protection is switched on. No password is set anywhere in this
+# workbook — this is meant to prevent accidental edits, not to be a real
+# security barrier.
+
+def lock_whole_sheet(ws):
+    """Protect a sheet with everything locked (no editable cells)."""
+    ws.protection.sheet = True
+
+def protect_with_unlocked_cells(ws, unlocked_addresses):
+    """Protect a sheet, but leave specific cell addresses editable."""
+    ws.protection.sheet = True
+    for addr in unlocked_addresses:
+        ws[addr].protection = Protection(locked=False)
+
+def unlock_range(ws, min_row, max_row, min_col, max_col):
+    """Mark a rectangular block of cells as editable (used before enabling
+    sheet protection, so the data-entry area of Income/Expenses stays open)."""
+    for r in range(min_row, max_row + 1):
+        for c in range(min_col, max_col + 1):
+            ws.cell(row=r, column=c).protection = Protection(locked=False)
 
 # =====================================================================
 # 0. HOW TO USE (plain language, first tab)
@@ -213,6 +236,11 @@ for c in range(1, 7):
 inc.freeze_panes = "A5"
 autosize(inc, {"A": 14, "B": 38, "C": 22, "D": 20, "E": 14, "F": 26})
 
+# Only the data-entry area (example row + all data rows, cols A-F) stays editable.
+# Headers (rows 1-3) and the total row stay locked.
+unlock_range(inc, min_row=4, max_row=DATA_ROWS_END, min_col=1, max_col=6)
+lock_whole_sheet(inc)
+
 # =====================================================================
 # 3. EXPENSES LOG (same layout as Income, for consistency)
 # =====================================================================
@@ -268,6 +296,9 @@ for c in range(1, 7):
 
 exp.freeze_panes = "A5"
 autosize(exp, {"A": 14, "B": 38, "C": 26, "D": 20, "E": 14, "F": 22})
+
+unlock_range(exp, min_row=4, max_row=DATA_ROWS_END, min_col=1, max_col=6)
+lock_whole_sheet(exp)
 
 print("How To Use, Categories, Income, Expenses sheets built.")
 
@@ -343,6 +374,8 @@ for c in range(1, 7):
 
 daily.freeze_panes = "A5"
 autosize(daily, {"A": 8, "B": 14, "C": 15, "D": 15, "E": 15, "F": 14})
+
+protect_with_unlocked_cells(daily, ["H2", "J2"])
 
 print("Daily Report sheet built.")
 
@@ -441,7 +474,74 @@ for i, catname in enumerate(income_categories):
     ms.cell(row=r_, column=5, value=formula).number_format = CURRENCY_FMT
 inc_cat_last_row = inc_cat_start_row + 1 + len(income_categories)
 
+protect_with_unlocked_cells(ms, ["H2"])
+
 print("Monthly Summary sheet built.")
+
+# =====================================================================
+# 4b. YEARLY REPORT — multi-year history (fixed 2024-2040 span)
+# =====================================================================
+yearly = wb.create_sheet("Yearly Report")
+yearly.sheet_view.showGridLines = False
+
+yearly["A1"] = f"{BUSINESS_NAME} — YEARLY REPORT"
+yearly["A1"].font = Font(name=TITLE_FONT_NAME, size=15, bold=True, color=COL_BROWN)
+yearly.merge_cells("A1:F1")
+yearly["A2"] = "Multi-year history, built automatically from the Income and Expenses tabs. Covers 2024-2040."
+yearly["A2"].font = NOTE_FONT
+yearly.merge_cells("A2:F2")
+
+headers_yr = ["Year", "Total Income", "Total Expenses", "Net Profit", "Profit Margin %", "Transactions"]
+for i, h in enumerate(headers_yr, start=1):
+    yearly.cell(row=3, column=i, value=h)
+style_header_row(yearly, 3, 6, HEADER_FILL_SUMMARY)
+
+YEARLY_FIRST_ROW = 4
+YEARLY_YEARS = list(range(2024, 2041))  # 2024-2040 inclusive, 17 years
+YEARLY_LAST_ROW = YEARLY_FIRST_ROW + len(YEARLY_YEARS) - 1
+
+for i, yr in enumerate(YEARLY_YEARS):
+    r_ = YEARLY_FIRST_ROW + i
+    yearly.cell(row=r_, column=1, value=yr).font = NORMAL_FONT
+    inc_formula = (f"=SUMIFS(Income!$E$4:$E${DATA_ROWS_END},"
+                    f"Income!$A$4:$A${DATA_ROWS_END},\">=\"&DATE({yr},1,1),"
+                    f"Income!$A$4:$A${DATA_ROWS_END},\"<\"&DATE({yr}+1,1,1))")
+    exp_formula = (f"=SUMIFS(Expenses!$E$4:$E${DATA_ROWS_END},"
+                    f"Expenses!$A$4:$A${DATA_ROWS_END},\">=\"&DATE({yr},1,1),"
+                    f"Expenses!$A$4:$A${DATA_ROWS_END},\"<\"&DATE({yr}+1,1,1))")
+    yearly.cell(row=r_, column=2, value=inc_formula).number_format = CURRENCY_FMT
+    yearly.cell(row=r_, column=3, value=exp_formula).number_format = CURRENCY_FMT
+    yearly.cell(row=r_, column=4, value=f"=B{r_}-C{r_}").number_format = CURRENCY_FMT
+    yearly.cell(row=r_, column=5, value=f"=IFERROR(D{r_}/B{r_},0)").number_format = PERCENT_FMT
+    trans_formula = (f"=COUNTIFS(Income!$A$4:$A${DATA_ROWS_END},\">=\"&DATE({yr},1,1),"
+                      f"Income!$A$4:$A${DATA_ROWS_END},\"<\"&DATE({yr}+1,1,1))"
+                      f"+COUNTIFS(Expenses!$A$4:$A${DATA_ROWS_END},\">=\"&DATE({yr},1,1),"
+                      f"Expenses!$A$4:$A${DATA_ROWS_END},\"<\"&DATE({yr}+1,1,1))")
+    yearly.cell(row=r_, column=6, value=trans_formula)
+    for c in range(1, 7):
+        yearly.cell(row=r_, column=c).border = BORDER_ALL
+        if c != 1:
+            yearly.cell(row=r_, column=c).font = NORMAL_FONT
+
+YEARLY_TOTAL_ROW = YEARLY_LAST_ROW + 1
+yearly.cell(row=YEARLY_TOTAL_ROW, column=1, value="ALL YEARS TOTAL").font = Font(name=FONT_NAME, size=12, bold=True)
+yearly.cell(row=YEARLY_TOTAL_ROW, column=2, value=f"=SUM(B{YEARLY_FIRST_ROW}:B{YEARLY_LAST_ROW})").number_format = CURRENCY_FMT
+yearly.cell(row=YEARLY_TOTAL_ROW, column=3, value=f"=SUM(C{YEARLY_FIRST_ROW}:C{YEARLY_LAST_ROW})").number_format = CURRENCY_FMT
+yearly.cell(row=YEARLY_TOTAL_ROW, column=4, value=f"=SUM(D{YEARLY_FIRST_ROW}:D{YEARLY_LAST_ROW})").number_format = CURRENCY_FMT
+yearly.cell(row=YEARLY_TOTAL_ROW, column=5,
+            value=f"=IFERROR(D{YEARLY_TOTAL_ROW}/B{YEARLY_TOTAL_ROW},0)").number_format = PERCENT_FMT
+yearly.cell(row=YEARLY_TOTAL_ROW, column=6, value=f"=SUM(F{YEARLY_FIRST_ROW}:F{YEARLY_LAST_ROW})")
+for c in range(1, 7):
+    yearly.cell(row=YEARLY_TOTAL_ROW, column=c).fill = TOTAL_FILL
+    yearly.cell(row=YEARLY_TOTAL_ROW, column=c).font = Font(name=FONT_NAME, size=12, bold=True)
+    yearly.cell(row=YEARLY_TOTAL_ROW, column=c).border = BORDER_ALL
+
+yearly.freeze_panes = "A4"
+autosize(yearly, {"A": 10, "B": 15, "C": 15, "D": 15, "E": 15, "F": 14})
+
+lock_whole_sheet(yearly)
+
+print("Yearly Report sheet built.")
 
 # =====================================================================
 # 5. DASHBOARD
@@ -552,13 +652,32 @@ kpi_card(dash, 19, 7, "ORDERS THIS MONTH",
          (f"=COUNTIFS(Income!$A$4:$A${DATA_ROWS_END},\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Income!$A$4:$A${DATA_ROWS_END},\"<\"&EDATE(DATE(YEAR(TODAY()),MONTH(TODAY()),1),1))"),
          '0', KPI_VALUE_FONT)
 
-dash.cell(row=23, column=1, value="QUICK FACTS").font = SECTION_FONT
+# ---- THIS YEAR (between This Month and Quick Facts) ----
+dash.cell(row=23, column=1, value="THIS YEAR").font = SECTION_FONT
 dash.merge_cells("A23:H23")
 for c in range(1, 9):
     dash.cell(row=23, column=c).fill = SECTION_FILL
 dash.row_dimensions[23].height = 20
 
-row0 = 25
+this_year_inc = (f"=SUMIFS(Income!$E$4:$E${DATA_ROWS_END},Income!$A$4:$A${DATA_ROWS_END},\">=\"&DATE(YEAR(TODAY()),1,1),"
+                  f"Income!$A$4:$A${DATA_ROWS_END},\"<\"&DATE(YEAR(TODAY())+1,1,1))")
+this_year_exp = (f"=SUMIFS(Expenses!$E$4:$E${DATA_ROWS_END},Expenses!$A$4:$A${DATA_ROWS_END},\">=\"&DATE(YEAR(TODAY()),1,1),"
+                  f"Expenses!$A$4:$A${DATA_ROWS_END},\"<\"&DATE(YEAR(TODAY())+1,1,1))")
+
+kpi_card(dash, 25, 1, "INCOME THIS YEAR", this_year_inc, CURRENCY_FMT)
+kpi_card(dash, 25, 3, "EXPENSES THIS YEAR", this_year_exp, CURRENCY_FMT, KPI_VALUE_FONT_RED)
+kpi_card(dash, 25, 5, "PROFIT THIS YEAR", "=A26-C26", CURRENCY_FMT)
+kpi_card(dash, 25, 7, "ORDERS THIS YEAR",
+         (f"=COUNTIFS(Income!$A$4:$A${DATA_ROWS_END},\">=\"&DATE(YEAR(TODAY()),1,1),Income!$A$4:$A${DATA_ROWS_END},\"<\"&DATE(YEAR(TODAY())+1,1,1))"),
+         '0', KPI_VALUE_FONT)
+
+dash.cell(row=29, column=1, value="QUICK FACTS").font = SECTION_FONT
+dash.merge_cells("A29:H29")
+for c in range(1, 9):
+    dash.cell(row=29, column=c).fill = SECTION_FILL
+dash.row_dimensions[29].height = 20
+
+row0 = 31
 dash.cell(row=row0-1, column=1, value="Fact").font = LABEL_FONT
 dash.cell(row=row0-1, column=2, value="Value").font = LABEL_FONT
 for c in (1, 2):
@@ -607,7 +726,7 @@ data = Reference(ms, min_col=2, max_col=3, min_row=3, max_row=15)
 cats = Reference(ms, min_col=1, min_row=4, max_row=15)
 bar.add_data(data, titles_from_data=True)
 bar.set_categories(cats)
-dash.add_chart(bar, "A31")
+dash.add_chart(bar, "A37")
 
 line = LineChart()
 line.title = "Net Profit Trend"
@@ -619,7 +738,7 @@ line.width = 18
 data2 = Reference(ms, min_col=4, min_row=3, max_row=15)
 line.add_data(data2, titles_from_data=True)
 line.set_categories(cats)
-dash.add_chart(line, "A49")
+dash.add_chart(line, "A55")
 
 pie = PieChart()
 pie.title = "Expenses by Category (Year)"
@@ -629,7 +748,7 @@ pdata = Reference(ms, min_col=2, min_row=cat_start_row+1, max_row=exp_cat_last_r
 pcats = Reference(ms, min_col=1, min_row=cat_start_row+2, max_row=exp_cat_last_row)
 pie.add_data(pdata, titles_from_data=True)
 pie.set_categories(pcats)
-dash.add_chart(pie, "I31")
+dash.add_chart(pie, "I37")
 
 pie2 = PieChart()
 pie2.title = "Income by Category (Year)"
@@ -639,11 +758,14 @@ pdata2 = Reference(ms, min_col=5, min_row=inc_cat_start_row+1, max_row=inc_cat_l
 pcats2 = Reference(ms, min_col=4, min_row=inc_cat_start_row+2, max_row=inc_cat_last_row)
 pie2.add_data(pdata2, titles_from_data=True)
 pie2.set_categories(pcats2)
-dash.add_chart(pie2, "I49")
+dash.add_chart(pie2, "I55")
+
+lock_whole_sheet(dash)
+lock_whole_sheet(howto)
 
 print("Dashboard sheet built.")
 
-wb._sheets = [howto, dash, inc, exp, daily, ms, cat]
+wb._sheets = [howto, dash, inc, exp, daily, ms, yearly, cat]
 wb.active = 0
 
 wb.properties.title = f"{BUSINESS_NAME} — Bookkeeping"

@@ -16,12 +16,14 @@ Currency: South African Rand (R).
 
 ```
  Income tab  ──┐
-               ├──▶  Daily Report   ──▶  Monthly Summary  ──▶  Dashboard
- Expenses tab ─┘     (day-by-day)        (month-by-month,        (KPIs + charts)
+               ├──▶  Daily Report   ──▶  Monthly Summary  ──▶  Yearly Report  ──▶  Dashboard
+ Expenses tab ─┘     (day-by-day)        (month-by-month,       (year-by-year)      (KPIs + charts)
                                           category-by-category)
 ```
 
-Only **Income** and **Expenses** are ever edited by hand. Every other sheet is a formula layer reading from those two — change a number in Income or Expenses, and it ripples forward automatically to the daily report, the monthly report, and the dashboard.
+Only **Income** and **Expenses** are ever edited by hand. Every other sheet is a formula layer reading from those two — change a number in Income or Expenses, and it ripples forward automatically to the daily report, the monthly report, the yearly report, and the dashboard.
+
+Sheet protection enforces this: Income, Expenses, and Categories are the only sheets open for typing (Daily Report and Monthly Summary each leave just their Month/Year selector cell open). Everything else is locked to prevent accidental edits.
 
 ---
 
@@ -30,11 +32,12 @@ Only **Income** and **Expenses** are ever edited by hand. Every other sheet is a
 | Sheet | Purpose | Manually edited? |
 |---|---|---|
 | **How To Use** | Plain-language quick-start guide | No |
-| **Dashboard** | All-time KPIs, a live "today" view, this-month KPIs, quick facts, and 4 charts | No |
+| **Dashboard** | All-time KPIs, a live "today" view, this-month KPIs, this-year KPIs, quick facts, and 4 charts | No |
 | **Income** | Log of every sale/order (date, description, category, payment method, amount, notes) | **Yes** |
 | **Expenses** | Log of every purchase/cost (same layout as Income) | **Yes** |
 | **Daily Report** | Day-by-day income/expense/profit breakdown for one selected month | No (except the Month/Year selector) |
 | **Monthly Summary** | Month-by-month and category-by-category rollups for one selected year; feeds the Dashboard charts | No (except the Year selector) |
+| **Yearly Report** | Fixed 2024–2040 multi-year history, one row per year | No (no selector — always shows every year) |
 | **Categories** | The lists behind the Category and Payment Method dropdowns | Only if categories change |
 
 Both log sheets share the exact same 6-column layout (Date, Description, Category, Payment Method, Amount, Notes) on purpose — one layout to learn, not two. Each has capacity for roughly 5,000 entries (~13+ years of daily use).

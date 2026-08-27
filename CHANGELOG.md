@@ -2,6 +2,19 @@
 
 All notable changes to this workbook are documented here.
 
+## [1.4.0]
+### Added
+- **Sheet protection**: Income and Expenses are now the only sheets with open data-entry cells (rows 4–5002 across all 6 columns). Headers, total rows, and every other sheet are locked against accidental edits.
+  - Daily Report and Monthly Summary stay locked overall, but their Month/Year selector cells remain unlocked so the displayed period can still be changed.
+  - Categories is left fully unprotected, since renaming or adding a category is an intentional, occasional edit.
+  - No password is set — this is accidental-edit prevention, not access control.
+- New **Yearly Report** sheet: a fixed 2024–2040 multi-year history table (Total Income, Total Expenses, Net Profit, Profit Margin %, Transactions per year), plus an all-years total row. Fully locked, no selector — it always shows every year at once.
+- New **This Year** section on the Dashboard, between This Month and Quick Facts: Income / Expenses / Profit / Orders for the current calendar year, recalculating automatically off `YEAR(TODAY())`.
+
+### Changed
+- Dashboard section order: All-Time Performance → Today's Live View → This Month → **This Year** → Quick Facts → Charts.
+- Tab order: How To Use → Dashboard → Income → Expenses → Daily Report → Monthly Summary → **Yearly Report** → Categories.
+
 ## [1.3.0]
 ### Added
 - New **Daily Report** sheet: day-by-day income/expense/profit/transaction breakdown for one selected month (Month/Year selectors), 31-row layout with automatic blank-out for days that don't exist in the selected month (e.g. day 30 in February).
