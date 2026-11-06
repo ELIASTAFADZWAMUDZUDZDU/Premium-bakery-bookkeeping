@@ -27,3 +27,6 @@ Thumbs.db
 # --- Temp / scratch files from regenerating the workbook ---
 *.tmp
 ~$*.xlsx
+
+# Secrets
+.env

@@ -2,6 +2,17 @@
 
 All notable changes to this workbook are documented here.
 
+## [1.5.0]
+### Added
+- `DEMO=1` option in `build_workbook.py` that fills both logs with fictional sample data; `demo/Premium_Bakery_DEMO.xlsx` and a dashboard screenshot.
+- `tests/test_workbook.py`: recalculates the demo in LibreOffice and checks Dashboard, Monthly Summary and Yearly Report totals against an independent calculation.
+- `CURRENCY_SYMBOL` / `CURRENCY_NAME` environment variables (default: South African Rand).
+- MIT `LICENSE`.
+
+### Changed
+- Example rows are now generic sample entries (no names or shop names).
+- Dashboard Quick Facts: wrapped labels and a wider value column so category names are no longer cut off.
+
 ## [1.4.0]
 ### Added
 - **Sheet protection**: Income and Expenses are now the only sheets with open data-entry cells (rows 4–5002 across all 6 columns). Headers, total rows, and every other sheet are locked against accidental edits.

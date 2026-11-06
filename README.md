@@ -2,13 +2,19 @@
 
 A self-updating income/expense tracker and KPI dashboard for a small bakery, built as a Google Sheets / Excel workbook.
 
+![Dashboard with fictional demo data](docs/screenshots/dashboard.png)
+
+*The Dashboard, filled with fictional demo data.*
+
+**In real use:** this workbook runs the daily bookkeeping of a family bakery (Google Sheets). The repository contains only the blank template and a demo with invented data. No real figures are stored here.
+
 ---
 
 ## What it does
 
 Every sale and every expense gets logged once, in one row, on one of two tabs. Everything else — daily totals, monthly reports, category breakdowns, KPIs, and charts — is calculated automatically from those two logs. There is no manual math, no separate reporting step, and nothing to remember to update.
 
-Currency: South African Rand (R).
+Currency: South African Rand (R) by default; change it with `CURRENCY_SYMBOL` and `CURRENCY_NAME` when regenerating (see below).
 
 ---
 
@@ -63,17 +69,29 @@ premium-bakery-bookkeeping/
 ├── README.md                          — this file
 ├── CHANGELOG.md                       — version history
 ├── .gitignore                         — excludes any live/real data file
+├── LICENSE                            — MIT licence
 ├── requirements.txt                   — Python dependency (openpyxl)
 ├── docs/
 │   ├── SYSTEM_DOCUMENTATION.md        — full technical reference (sheets, formulas, cell map)
 │   └── WORKBOOK_STRUCTURE.md          — condensed sheet/row/column structure overview
 ├── src/
 │   └── build_workbook.py              — the script that generates the workbook
+├── tests/
+│   └── test_workbook.py               — checks workbook formulas against an independent calculation
+├── demo/
+│   └── Premium_Bakery_DEMO.xlsx       — workbook filled with fictional sample data
 └── templates/
     └── Premium_Bakery_Bookkeeping_TEMPLATE.xlsx   — the blank template (no real data)
 ```
 
 **Important**: `templates/` holds a template only — structure, formulas, and formatting, with one fictional example row per log sheet. It never contains real business data. A working copy that gets filled in with actual sales and expenses should be kept separately (Google Sheets/Drive) and is excluded from version control via `.gitignore`.
+
+---
+
+## Demo and tests
+
+- `demo/Premium_Bakery_DEMO.xlsx` is the same workbook filled with about nine months of **fictional** entries, so every chart and report is populated. Regenerate it with `DEMO=1 OUTPUT_PATH=demo/Premium_Bakery_DEMO.xlsx python src/build_workbook.py`.
+- `tests/test_workbook.py` builds the demo, recalculates it in LibreOffice, and checks the Dashboard, Monthly Summary and Yearly Report totals against an independent calculation from the raw log rows (`python tests/test_workbook.py`, needs LibreOffice).
 
 ---
 
@@ -86,7 +104,11 @@ pip install -r requirements.txt
 python src/build_workbook.py
 ```
 
-This regenerates `templates/Premium_Bakery_Bookkeeping_TEMPLATE.xlsx` from scratch.
+This regenerates `templates/Premium_Bakery_Bookkeeping_TEMPLATE.xlsx` from scratch. To use another currency:
+
+```bash
+CURRENCY_SYMBOL='$' CURRENCY_NAME='US Dollar' python src/build_workbook.py
+```
 
 ---
 
@@ -99,4 +121,4 @@ This regenerates `templates/Premium_Bakery_Bookkeeping_TEMPLATE.xlsx` from scrat
 
 ## License
 
-Private project — not published or licensed for public use.
+Released under the MIT licence (see `LICENSE`). The template and demo contain no real business data.

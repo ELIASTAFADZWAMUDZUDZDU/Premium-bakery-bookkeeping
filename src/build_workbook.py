@@ -1,4 +1,5 @@
 import datetime
+import os
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
@@ -8,6 +9,8 @@ from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 wb = Workbook()
 
 BUSINESS_NAME = "PREMIUM BAKERY"
+CURRENCY_SYMBOL = os.environ.get("CURRENCY_SYMBOL", "R")   # e.g. R, $, Z$, ₹
+CURRENCY_NAME = os.environ.get("CURRENCY_NAME", "South African Rand")
 FONT_NAME = "Arial"
 TITLE_FONT_NAME = "Georgia"
 
@@ -54,7 +57,7 @@ def gold_accent_bar(ws, row, last_col, height=5):
     for c in range(1, last_col + 1):
         ws.cell(row=row, column=c).fill = GOLD_FILL
 
-CURRENCY_FMT = '"R"#,##0;[RED]-"R"#,##0'
+CURRENCY_FMT = f'"{CURRENCY_SYMBOL}"#,##0;[RED]-"{CURRENCY_SYMBOL}"#,##0'
 PERCENT_FMT = '0.0%'
 DATE_FMT = 'dd-mmm-yyyy'
 
@@ -136,7 +139,7 @@ for title, body in steps:
         howto.cell(row=r+1, column=cc).fill = HOWTO_FILL
     r += 3
 
-howto.cell(row=r, column=1, value="Tip: All amounts are in South African Rand (R).").font = NOTE_FONT
+howto.cell(row=r, column=1, value=f"Tip: All amounts are in {CURRENCY_NAME} ({CURRENCY_SYMBOL}).").font = NOTE_FONT
 howto.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
 
 autosize(howto, {"A": 16, "B": 16, "C": 16, "D": 16, "E": 16, "F": 16})
@@ -195,12 +198,12 @@ inc["A2"] = "Write down every order or sale here. The yellow row is an example �
 inc["A2"].font = NOTE_FONT
 inc.merge_cells("A2:F2")
 
-headers = ["Date", "Description", "Category", "Payment Method", "Amount (R)", "Notes"]
+headers = ["Date", "Description", "Category", "Payment Method", f"Amount ({CURRENCY_SYMBOL})", "Notes"]
 for i, h in enumerate(headers, start=1):
     inc.cell(row=3, column=i, value=h)
 style_header_row(inc, 3, 6, HEADER_FILL_INCOME)
 
-example = [datetime.date(2026, 8, 1), "Custom birthday cake - Van der Merwe family", "Custom Orders", "EFT / Bank Transfer", 850, "Paid in full"]
+example = [datetime.date(2026, 8, 1), "Custom birthday cake (sample order)", "Custom Orders", "EFT / Bank Transfer", 850, "Paid in full"]
 for i, v in enumerate(example, start=1):
     c = inc.cell(row=4, column=i, value=v)
     c.font = EXAMPLE_FONT
@@ -257,12 +260,12 @@ exp["A2"] = "Write down everything you buy for the bakery here. The yellow row i
 exp["A2"].font = NOTE_FONT
 exp.merge_cells("A2:F2")
 
-headers_e = ["Date", "Description", "Category", "Payment Method", "Amount (R)", "Notes"]
+headers_e = ["Date", "Description", "Category", "Payment Method", f"Amount ({CURRENCY_SYMBOL})", "Notes"]
 for i, h in enumerate(headers_e, start=1):
     exp.cell(row=3, column=i, value=h)
 style_header_row(exp, 3, 6, HEADER_FILL_EXPENSE)
 
-example_e = [datetime.date(2026, 8, 2), "Flour, sugar, butter - weekly stock (Makro)", "Raw Materials / Ingredients", "Cash", 650, ""]
+example_e = [datetime.date(2026, 8, 2), "Flour, sugar, butter - weekly stock (sample)", "Raw Materials / Ingredients", "Cash", 650, ""]
 for i, v in enumerate(example_e, start=1):
     c = exp.cell(row=4, column=i, value=v)
     c.font = EXAMPLE_FONT
@@ -624,7 +627,7 @@ today_chart = BarChart()
 today_chart.type = "col"
 today_chart.title = "Today: Income vs Expenses"
 today_chart.style = 10
-today_chart.y_axis.title = "Amount (R)"
+today_chart.y_axis.title = f"Amount ({CURRENCY_SYMBOL})"
 today_chart.height = 6.5
 today_chart.width = 12
 today_data = Reference(dash, min_col=12, min_row=13, max_row=14)
@@ -704,21 +707,25 @@ insight_fmts = [None, None, CURRENCY_FMT, CURRENCY_FMT]
 
 for i, (lbl, formula, fmt) in enumerate(zip(insight_labels, insight_values, insight_fmts)):
     r_ = row0 + i
-    dash.cell(row=r_, column=1, value=lbl).font = NORMAL_FONT
+    lcell = dash.cell(row=r_, column=1, value=lbl)
+    lcell.font = NORMAL_FONT
+    lcell.alignment = Alignment(wrap_text=True, vertical="center")
+    dash.row_dimensions[r_].height = 32
     vcell = dash.cell(row=r_, column=2, value=formula)
+    vcell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="left")
     vcell.font = Font(name=FONT_NAME, size=11, bold=True)
     if fmt:
         vcell.number_format = fmt
     for c in (1, 2):
         dash.cell(row=r_, column=c).border = BORDER_ALL
 
-autosize(dash, {"A": 20, "B": 16, "C": 16, "D": 16, "E": 16, "F": 16, "G": 16, "H": 16})
+autosize(dash, {"A": 22, "B": 26, "C": 16, "D": 16, "E": 16, "F": 16, "G": 16, "H": 16})
 
 # ---- Charts ----
 bar = BarChart()
 bar.title = "Monthly Income vs Expenses"
 bar.style = 10
-bar.y_axis.title = "Amount (R)"
+bar.y_axis.title = f"Amount ({CURRENCY_SYMBOL})"
 bar.x_axis.title = "Month"
 bar.height = 8
 bar.width = 18
@@ -731,7 +738,7 @@ dash.add_chart(bar, "A37")
 line = LineChart()
 line.title = "Net Profit Trend"
 line.style = 12
-line.y_axis.title = "Net Profit (R)"
+line.y_axis.title = f"Net Profit ({CURRENCY_SYMBOL})"
 line.x_axis.title = "Month"
 line.height = 8
 line.width = 18
@@ -771,7 +778,50 @@ wb.active = 0
 wb.properties.title = f"{BUSINESS_NAME} — Bookkeeping"
 wb.properties.creator = BUSINESS_NAME
 
-import os
+# ---------- Optional demo data (fictional) ----------
+# Run with DEMO=1 to fill both logs with ~9 months of invented sample entries, so the
+# Dashboard and reports show populated charts. Never use real business data here.
+if os.environ.get("DEMO") == "1":
+    import random
+    random.seed(42)
+    end = datetime.date.today()
+    start = end - datetime.timedelta(days=270)
+    income_types = [("Custom Orders", "Custom cake (sample order)", 450, 1400),
+                    ("Catering Orders", "Catering tray (sample order)", 800, 2600),
+                    ("Wholesale Orders", "Cafe wholesale delivery (sample)", 600, 1800),
+                    ("Online Orders", "Online order (sample)", 150, 700),
+                    ("Delivery Charges Collected", "Delivery fee (sample)", 40, 120)]
+    expense_types = [("Raw Materials / Ingredients", "Ingredients restock (sample)", 300, 1500),
+                     ("Packaging & Boxes", "Boxes and packaging (sample)", 100, 450),
+                     ("Transport & Delivery", "Fuel / delivery (sample)", 60, 300),
+                     ("Cleaning & Supplies", "Cleaning supplies (sample)", 50, 200),
+                     ("Marketing & Promotion", "Social media ads (sample)", 100, 400)]
+    pays = ["Cash", "Card", "EFT / Bank Transfer"]
+    inc_rows, exp_rows = [], []
+    d = start
+    while d <= end:
+        if d.weekday() != 6:                     # no sales on Sundays
+            for _ in range(random.choice([0, 1, 1, 2, 2, 3])):
+                cat, desc, lo, hi = random.choice(income_types)
+                inc_rows.append((d, desc, cat, random.choice(pays), random.randrange(lo, hi, 10), ""))
+            if random.random() < 0.55:
+                cat, desc, lo, hi = random.choice(expense_types)
+                exp_rows.append((d, desc, cat, random.choice(pays), random.randrange(lo, hi, 10), ""))
+        if d.day == 1:
+            exp_rows.append((d, "Monthly rent (sample)", "Rent", "EFT / Bank Transfer", 4500, ""))
+            exp_rows.append((d, "Electricity and water (sample)", "Electricity & Water", "EFT / Bank Transfer", 1200, ""))
+        d += datetime.timedelta(days=1)
+    for ws_, rows in ((inc, inc_rows), (exp, exp_rows)):
+        for i, row in enumerate(rows):
+            for c, v in enumerate(row, start=1):
+                cell = ws_.cell(row=4 + i, column=c, value=v if v != "" else None)
+                cell.font = NORMAL_FONT
+                cell.fill = PatternFill(fill_type=None)
+                cell.border = BORDER_ALL
+            ws_.cell(row=4 + i, column=1).number_format = DATE_FMT
+            ws_.cell(row=4 + i, column=5).number_format = CURRENCY_FMT
+    print(f"Demo data: {len(inc_rows)} income rows, {len(exp_rows)} expense rows")
+
 OUTPUT_PATH = os.environ.get(
     "OUTPUT_PATH",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
